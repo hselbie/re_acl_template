@@ -1,0 +1,59 @@
+# VS Code files
+.vscode/
+*.code-workspace
+.history/
+
+# Config strings
+*.toml
+
+# Venv
+re_acl_knb/
+
+# Operating system files
+Thumbs.db
+.DS_Store
+
+# Linux temporary files
+*~
+
+# Compiled object files
+*.o
+*.a
+*.so
+
+# Executable files
+*.out
+*.exe
+
+# Log files
+*.log
+
+# Dependency directories
+node_modules/
+vendor/
+
+# Build output directories
+build/
+dist/
+target/
+
+# Common Linux configuration files
+.bashrc
+.bash_profile
+.bash_history
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# C++
+*.dSYM
+
+# Go
+*.test
+
+# Rust
+target/
+Cargo.lock
