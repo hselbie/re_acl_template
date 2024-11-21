@@ -5,9 +5,10 @@
 
 # Config strings
 *.toml
+test*.py
 
 # Venv
-re_acl_knb/
+venv_folder_dnt/
 
 # Operating system files
 Thumbs.db

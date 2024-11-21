@@ -1,27 +1,25 @@
-from agents import agent_manager
 import configparser
-import langchain
 import tomllib
-from tools import tool1
+from tools import tool_collection 
+from agents import agent_structure
+from utils.utils import GraphNode
+import prompts.prompt_manager as prompt_manager
+
 
 with open("config.toml", "rb") as f:
     config = tomllib.load(f)
 
+my_model = config['AGENT_DEFAULT']['model']
+my_project = config['AGENT_DEFAULT']['project_id']
+my_location = config['AGENT_DEFAULT']['location']
+
 addition_toolkit = [
-    tool1.add,
-    tool1.multiply,
-    tool1.square,
-    tool1.search_datastore,
+    tool_collection.add,
 ]
 
-test_agent = agent_manager.AGENT(
-    model=config['AGENT_DEFAULT']['model'],  # Required.
-    tools=addition_toolkit,  # Optional.
-    project=config['AGENT_DEFAULT']['project_id'],
-    location=config['AGENT_DEFAULT']['location'],
-)
-test_agent.set_up()
 
-test_agent.query(
-    input='what is prompt engineering?'
-)
+d = GraphNode(name="controlAgent", agent=controlAgent)
+
+
+r = d("What is 12+21")
+print(r)
