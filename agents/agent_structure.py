@@ -1,111 +1,188 @@
 import vertexai
-from vertexai.preview import reasoning_engines
 from langchain_core.tools import tool
-from langchain_core import prompts
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.agents.format_scratchpad.tools import format_to_tool_messages
-from langchain_core.messages import BaseMessage
-from langchain_core.agents import AgentAction, AgentFinish
-from langgraph.graph import END, StateGraph
+from langgraph.graph import END, StateGraph, Graph
 from typing import Literal, List, Callable, TypedDict, Annotated, Union, Any, Optional
 from utils.utils import Agent, AgentState, GraphNode
 
+class PlannerAgent(Agent):
+    def __call__(self, state: AgentState) -> AgentState:
+        instruction = """You are a planning agent responsible for understanding user questions and routing them appropriately.
 
-class CustomAgent(Agent):
-    def create_agent(self, instruction: str):
-        vertexai.init(project=self.project, location=self.location)
-        custom_prompt= {
-            "user_input": lambda x: x["input"],
-            # "history": lambda x: x["history"],
-            "agent_scratchpad": lambda x: format_to_tool_messages(x["intermediate_steps"]),
-        } | ChatPromptTemplate.from_messages([
-            ("system", instruction),
-            # prompts.MessagesPlaceholder(variable_name="history")
-            ("placeholder", "{history}"),
-            ("user", "{user_input}"),
-            ("placeholder", "{agent_scratchpad}"),
-        ])
+ROUTING OPTIONS:
+- For calculations or data processing: end with 'next: adder'
+- For direct answers that need verification: end with 'next: checker'
+- If completely finished and verified: end with 'next: end'
 
-        agent = reasoning_engines.LangchainAgent(
-            prompt=custom_prompt,
-            model=self.model,
-            model_kwargs=self.model_kwargs,
-            tools=self.tools,
-            agent_executor_kwargs={"return_intermediate_steps": False},
-        )
+EXAMPLE RESPONSES:
 
-        return agent
+1. For calculation needed:
+"This question requires calculating multiple steps with apples. Let me route this to our calculation specialist.
+next: adder"
 
-class MultiAgent:
-    def __init__(self, project: str, agent_list: List[str], location: str, enable_tracing = False) -> None:
-        self.project = project
-        self.location = location
-        self.agent_list = agent_list
+2. For direct answer:
+"Paris is the capital of France. This is a straightforward fact that needs verification.
+next: checker"
 
-        self.enable_tracing = enable_tracing
+3. For complex processing:
+"This question involves analyzing sales data across multiple quarters and calculating growth rates. This needs our processing agent.
+next: adder"
 
-    def route(self, state: AgentState):
+IMPORTANT:
+- Always explain your reasoning before providing the routing decision
+- Begin your routing on a new line with "next: "
+- Pick the most appropriate agent for the task at hand
+
+Available Tools:
+- Calculator for basic math
+- Search for factual information
+"""
+        
+        q = state["input"]
+        agent = self.create_agent(instruction)
+        response = agent.query(input=q)
+        
+        state["agent_outcome"] = response['output']
+        if "next: adder" not in response['output']:
+            state["answer"] = response.split("next:")[0].strip()
+            
+        return state
+
+class AdderAgent(Agent):
+    def __call__(self, state: AgentState) -> AgentState:
+        instruction = f"""You are a processing agent that handles complex calculations and detailed analysis.
+        
+        Original Question: {state["original_question"]}
+        
+        Your task:
+        1. Process the question using available tools
+        2. Show your work clearly
+        3. Provide a detailed answer
+        
+        Always end your response with: 'next: checker'
         """
-        Route to determine the next node to be triggered.
+        
+        agent = self.create_agent(instruction)
+        response = agent.query(state)
+        
+        state["agent_outcome"] = response['output']
+        state["answer"] = response.split("next:")[0].strip()
+        return state
+
+class CheckerAgent(Agent):
+    def __call__(self, state: AgentState) -> AgentState:
+        instruction = f"""You are a verification agent that ensures answers are complete and accurate.
+        
+        Original Question: {state["original_question"]}
+        Current Answer: {state["answer"]}
+        
+        Verify:
+        1. Answer addresses the original question completely
+        2. Calculations are accurate (if any)
+        3. All requirements are met
+        4. Response is clear and well-formatted
+        
+        End your response with one of:
+        'next: end' - if answer is satisfactory
+        'next: adder' - if calculations need revision
+        'next: planner' - if answer needs clarification
+        """
+        
+        agent = self.create_agent(instruction)
+        response = agent.query(state)
+        
+        state["agent_outcome"] = response['output']
+        return state
+
+class WorkflowManager:
+    def __init__(self, agents: dict):
+        self.agent_list = ["planner", "adder", "checker", END]
+        self.agents = agents
+
+    def get_next_step(self, state: AgentState) -> Literal["planner", "adder", "checker", "end"]:
+        """
+        Determine the next node to be triggered.
+        """
+        message = state['agent_outcome'].lower()
+        if "next: planner" in message:
+            return "planner"
+        elif "next: adder" in message:
+            return "adder"
+        elif "next: checker" in message:
+            return "checker"
+        elif "next: end" in message:
+            return "end"
+        return "end"  # Default case
+       
+    def route(self, state: AgentState) -> str:
+        """
+        Determine the next node to be triggered.
         """
         message = state['agent_outcome']
         for agent_name in self.agent_list:
-            if f"next: {agent_name}" in message:
+            if f"next: {agent_name}" in message.lower():
                 return agent_name
         return END
-
-    def _setup(self):
-
+    
+    def create_workflow(self) -> Graph:
         workflow = StateGraph(AgentState)
-        # Add graph nodes
-        workflow.add_node(node="coordinator_agent",
-                          action=GraphNode("coordinator_agent", coordinator_agent)
-        )
-        workflow.add_node(node="rapida_machine_type_agent",
-                          action=GraphNode("rapida_machine_type_agent", rapida_machine_type_agent)
-        )
-        workflow.add_node(node="rotajet_machine_type_agent",
-                          action=GraphNode("rotajet_machine_type_agent", rotajet_machine_type_agent)
-        )
-        workflow.add_node(node="rapida_106_agent",
-                          action=GraphNode("rapida_106_agent", rapida_106_agent)
-        )
-        workflow.add_node(node="rapida_75_agent",
-                          action=GraphNode("rapida_75_agent", rapida_75_agent)
-        )
-        workflow.add_node(node="rotajet_2018_agent",
-                          action=GraphNode("rotajet_2018_agent", rotajet_2018_agent)
-        )
+        
+        # Add nodes
+        for name, agent in self.agents.items():
+            workflow.add_node(name, agent)
+        
+        # Define the conditional edges
+             # Add edges with routing
+        workflow.add_conditional_edges(
+            "planner",
+            self.get_next_step,
+            {
+                "adder": "adder",
+                "checker": "checker",
+                "end": END
+            }
+        ) 
 
+        workflow.add_conditional_edges(
+            "adder",
+            self.get_next_step,
+            {
+                "checker": "checker",
+                "end": END 
+            }
+        )
+        
+        workflow.add_conditional_edges(
+            "checker",
+            self.get_next_step,
+            {
+                "planner": "planner",
+                "adder": "adder",
+                "end": END 
+            }
+        )
         # Set entry point
-        workflow.set_entry_point("coordinator_agent")
+        workflow.set_entry_point("planner")
+        
+        return workflow.compile()
 
-        # Add conditional edges
-        workflow.add_conditional_edges(
-            source="coordinator_agent",
-            path=route
-        )
-        workflow.add_conditional_edges(
-            source="rapida_machine_type_agent",
-            path=route
-        )
-        workflow.add_conditional_edges(
-            source="rotajet_machine_type_agent",
-            path=route
-        )
-
-        # Add normal edges
-        workflow.add_edge(
-            start_key='rapida_106_agent',
-            end_key=END
-        )
-        workflow.add_edge(
-            start_key='rapida_75_agent',
-            end_key=END
-        )
-        workflow.add_edge(
-            start_key='rotajet_2018_agent',
-            end_key=END
-        )
-
-        self.runnable_workflow = workflow.compile()
+def run_workflow(
+    question: str,
+    agents: dict) -> str:
+    manager = WorkflowManager(agents=agents)
+    workflow = manager.create_workflow()
+    
+    initial_state = AgentState(
+        input=question,
+        chat_history=[],
+        agent_outcome=None,
+        chat_id="",
+        intermediate_steps=[],
+        user=None,
+        original_question=question,
+        answer=None
+    )
+    
+    final_state = workflow.invoke(initial_state)
+    return final_state["answer"]
