@@ -20,6 +20,14 @@ adder_agent = agent_structure.AdderAgent(
     location=my_location,
     tools=[tool_collection.add]
     )
+
+factorator = agent_structure.FactAgent(
+    model=my_model,
+    project=my_project,
+    location=my_location,
+    # tools=[tool_collection.search]
+)
+
 checker_agent = agent_structure.CheckerAgent(
     model=my_model, 
     project=my_project, 
@@ -29,6 +37,7 @@ checker_agent = agent_structure.CheckerAgent(
 agents = {
             "planner": planner_agent,
             "adder": adder_agent,
+            "factorator": factorator,
             "checker": checker_agent 
         }
      

@@ -12,6 +12,7 @@ class PlannerAgent(Agent):
 
 ROUTING OPTIONS:
 - For calculations or data processing: end with 'next: adder'
+- For fact lookups: end with 'next: factorator'
 - For direct answers that need verification: end with 'next: checker'
 - If completely finished and verified: end with 'next: end'
 
@@ -23,7 +24,7 @@ next: adder"
 
 2. For direct answer:
 "Paris is the capital of France. This is a straightforward fact that needs verification.
-next: checker"
+next: factorator"
 
 3. For complex processing:
 "This question involves analyzing sales data across multiple quarters and calculating growth rates. This needs our processing agent.
@@ -48,7 +49,7 @@ Available Tools:
         state["agent_outcome"] = response['output']
         state["current_agent"] = 'planner'
         if "next: adder" not in response['output']:
-            state["answer"] = response.split("next:")[0].strip()
+            state["answer"] = response['output'].split("next:")[0].strip()
             
         return state
 
@@ -78,6 +79,33 @@ class AdderAgent(Agent):
         state["answer"] = output.split("next:")[0].strip()
         return state
 
+class FactAgent(Agent):
+    def __call__(self, state: AgentState) -> AgentState:
+        instruction = f"""You are a processing agent that looks up facts.
+        
+        Original Question: {state["original_question"]}
+        
+        Your task:
+        1. Process the question using available knowledge base 
+        2. Show your work clearly
+        3. Provide a detailed answer
+        
+        Always end your response with: 'next: checker'
+        """
+        
+        agent = self.create_agent(instruction)
+        state['current_agent'] = 'factorator'
+        query_input = {
+        "input": state["input"]
+    }
+        response = agent.query(input=query_input)
+        output = response['output']
+        
+        state["agent_outcome"] = output 
+        state["answer"] = output.split("next:")[0].strip()
+        return state
+
+
 class CheckerAgent(Agent):
     def __call__(self, state: AgentState) -> AgentState:
         instruction = f"""You are a verification agent that ensures answers are complete and accurate.
@@ -94,6 +122,7 @@ class CheckerAgent(Agent):
         End your response with one of:
         'next: end' - if answer is satisfactory
         'next: adder' - if calculations need revision
+        'next: factorator' - if answer needs clarification
         'next: planner' - if answer needs clarification
         """
 
@@ -102,7 +131,7 @@ class CheckerAgent(Agent):
         }
         
         agent = self.create_agent(instruction)
-        
+
         response = agent.query(input=query_input)
         
         state["agent_outcome"] = response['output']
@@ -122,11 +151,13 @@ class WorkflowManager:
             return "planner"
         elif "next: adder" in message:
             return "adder"
+        elif "next: factorator" in message:
+            return "factorator"
         elif "next: checker" in message:
             return "checker"
         elif "next: end" in message:
-            return "end"
-        return "end"  # Default case
+            return END 
+        return END  # Default case
        
     def route(self, state: AgentState) -> str:
         """
@@ -152,6 +183,7 @@ class WorkflowManager:
             self.get_next_step,
             {
                 "adder": "adder",
+                "factorator": "factorator",
                 "checker": "checker",
                 "end": END
             }
@@ -172,6 +204,7 @@ class WorkflowManager:
             {
                 "planner": "planner",
                 "adder": "adder",
+                "factorator": "factorator",
                 "end": END 
             }
         )
