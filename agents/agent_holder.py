@@ -18,7 +18,7 @@ adder_agent = agent_structure.AdderAgent(
     model=my_model, 
     project=my_project, 
     location=my_location,
-    tools=tool_collection.add
+    tools=[tool_collection.add]
     )
 checker_agent = agent_structure.CheckerAgent(
     model=my_model, 

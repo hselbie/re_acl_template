@@ -2,6 +2,7 @@ from vertexai.preview import reasoning_engines
 import vertexai
 from langchain_google_vertexai import HarmBlockThreshold, HarmCategory
 from langchain_core.messages import BaseMessage
+from langchain_core import prompts
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain.agents.format_scratchpad.tools import format_to_tool_messages
 from langchain_core.prompts import ChatPromptTemplate
@@ -9,21 +10,12 @@ from langchain_core.tools import tool
 from typing import Literal, List, Callable, TypedDict, Annotated, Union, Any, Optional
 import operator
 
-# class AgentState(TypedDict):
-#     """
-#     The agent state is the input to each node in the graph
-#     """
-#     input: str
-#     chat_history: list[BaseMessage]
-#     agent_outcome: Union[AgentAction, AgentFinish, None]
-#     chat_id: str
-#     intermediate_steps: Annotated[list[tuple[AgentAction, str]], operator.add]
-#     user: Optional[dict]
 class AgentState(TypedDict):
     """
     The agent state is the input to each node in the graph
     """
     input: str                  # Current input string being processed
+    current_agent: str          # Name of current agent
     chat_history: list[BaseMessage]  # List of previous messages
     agent_outcome: Union[AgentAction, AgentFinish, None]  # Result of agent's action
     chat_id: str               # Unique identifier for chat session
@@ -56,15 +48,17 @@ class Agent:  # Base Agent class
     def create_agent(self, instruction: str):
         vertexai.init(project=self.project, location=self.location)
         custom_prompt = {
-            "user_input": lambda x: x["input"],
-            "agent_scratchpad": lambda x: format_to_tool_messages(x["intermediate_steps"]),
-        } | ChatPromptTemplate.from_messages([
+        "input": lambda x: x["input"],
+        "agent_scratchpad": (lambda x: format_to_tool_messages(x["intermediate_steps"])),
+        } | prompts.ChatPromptTemplate.from_messages(
+        [
             ("system", instruction),
-            ("placeholder", "{history}"),
-            ("user", "{user_input}"),
-            ("placeholder", "{agent_scratchpad}"),
-        ])
-        
+            ("user", "{input}"),
+            prompts.MessagesPlaceholder(variable_name="agent_scratchpad"),
+        ]
+    )
+    
+        # Create the full prompt with input mappings
         return reasoning_engines.LangchainAgent(
             prompt=custom_prompt,
             model=self.model,
@@ -76,32 +70,3 @@ class Agent:  # Base Agent class
 
     def update_state(self, key, value):
         self.state = {**self.state, key: value}
-
-class GraphNode():
-    """
-       Node to be added to a graph.
-    """
-    def __init__(self, name: str, agent: Callable) -> None:
-        self.name = name
-        self.agent = agent
-
-    def __call__(self, state) -> Any:
-        print(f"{self.name} is triggered")
-
-        # user_content = "\n".join(context["value"] for context in state["user"]["context_notes"] if context["type"] == "agent" and self.name == context["reference"])
-    #     if user_content != "":
-    #         user_content = "You are given with additional information:\n" + user_content
-    #     dynamic_context = (
-    #     "Please use time format as YYYY-MM-DD.\n"
-    #    f"{user_content}"
-    #     )
-
-        # Invoke agent
-        response = self.agent.query(input=state)
-            # input={"input": state["input"]
-            #        , "dynamic_context": dynamic_context},
-            # config={"configurable": {"session_id": state["chat_id"]}
-            # },
-        print(f"{self.name} outcome:", response["output"])
-        # return {"agent_outcome": response["output"], "intermediate_steps": [(state['agent_outcome'], response["output"])]}
-

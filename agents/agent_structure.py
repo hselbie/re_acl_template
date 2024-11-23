@@ -4,7 +4,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.agents.format_scratchpad.tools import format_to_tool_messages
 from langgraph.graph import END, StateGraph, Graph
 from typing import Literal, List, Callable, TypedDict, Annotated, Union, Any, Optional
-from utils.utils import Agent, AgentState, GraphNode
+from utils.utils import Agent, AgentState 
 
 class PlannerAgent(Agent):
     def __call__(self, state: AgentState) -> AgentState:
@@ -39,11 +39,14 @@ Available Tools:
 - Search for factual information
 """
         
-        q = state["input"]
         agent = self.create_agent(instruction)
-        response = agent.query(input=q)
-        
+
+        query_input = {
+            "input": state["input"]
+        }
+        response = agent.query(input=query_input)
         state["agent_outcome"] = response['output']
+        state["current_agent"] = 'planner'
         if "next: adder" not in response['output']:
             state["answer"] = response.split("next:")[0].strip()
             
@@ -64,10 +67,15 @@ class AdderAgent(Agent):
         """
         
         agent = self.create_agent(instruction)
-        response = agent.query(state)
+        state['current_agent'] = 'adder'
+        query_input = {
+        "input": state["input"]
+    }
+        response = agent.query(input=query_input)
+        output = response['output']
         
-        state["agent_outcome"] = response['output']
-        state["answer"] = response.split("next:")[0].strip()
+        state["agent_outcome"] = output 
+        state["answer"] = output.split("next:")[0].strip()
         return state
 
 class CheckerAgent(Agent):
@@ -88,9 +96,14 @@ class CheckerAgent(Agent):
         'next: adder' - if calculations need revision
         'next: planner' - if answer needs clarification
         """
+
+        query_input = {
+            "input": state["input"]
+        }
         
         agent = self.create_agent(instruction)
-        response = agent.query(state)
+        
+        response = agent.query(input=query_input)
         
         state["agent_outcome"] = response['output']
         return state
