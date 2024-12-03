@@ -14,7 +14,7 @@ def add(x: int, y: int) -> int:
 
 def test_controlled_gen(project: str):
     '''test function to return weather with a controlled generation'''
-    vertexai.init(project='zinc-forge-302418', location="us-central1")
+    vertexai.init(project='MYPROJECT', location="us-central1")
 
     response_schema = {
         "type": "OBJECT",
