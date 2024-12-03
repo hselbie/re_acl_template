@@ -20,14 +20,12 @@ adder_agent = agent_structure.AdderAgent(
     location=my_location,
     tools=[tool_collection.add]
     )
-
 factorator = agent_structure.FactAgent(
     model=my_model,
     project=my_project,
     location=my_location,
-    # tools=[tool_collection.search]
-)
-
+    tools=[tool_collection.test_controlled_gen]
+    )
 checker_agent = agent_structure.CheckerAgent(
     model=my_model, 
     project=my_project, 

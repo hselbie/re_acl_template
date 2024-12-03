@@ -12,7 +12,7 @@ class PlannerAgent(Agent):
 
 ROUTING OPTIONS:
 - For calculations or data processing: end with 'next: adder'
-- For fact lookups: end with 'next: factorator'
+- For anything else: end with 'next: factorator'
 - For direct answers that need verification: end with 'next: checker'
 - If completely finished and verified: end with 'next: end'
 
@@ -81,17 +81,21 @@ class AdderAgent(Agent):
 
 class FactAgent(Agent):
     def __call__(self, state: AgentState) -> AgentState:
-        instruction = f"""You are a processing agent that looks up facts.
+        instruction = f"""
+        You are a test agent that's sole goal is to call the tool associated with this agent.
+        Always end your response with: 'next: checker'"""
+        # instruction = f"""You are a processing agent that looks up facts.
         
-        Original Question: {state["original_question"]}
+        # Original Question: {state["original_question"]}
+
         
-        Your task:
-        1. Process the question using available knowledge base 
-        2. Show your work clearly
-        3. Provide a detailed answer
+        # Your task:
+        # 1. Process the question using available knowledge base 
+        # 2. Show your work clearly
+        # 3. Provide a detailed answer
         
-        Always end your response with: 'next: checker'
-        """
+        # Always end your response with: 'next: checker'
+        # """
         
         agent = self.create_agent(instruction)
         state['current_agent'] = 'factorator'
@@ -184,7 +188,6 @@ class WorkflowManager:
             {
                 "adder": "adder",
                 "factorator": "factorator",
-                "checker": "checker",
                 "end": END
             }
         ) 
