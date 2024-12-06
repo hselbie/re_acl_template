@@ -173,7 +173,7 @@ class WorkflowManager:
                 return agent_name
         return END
     
-    def create_workflow(self) -> Graph:
+    def set_up(self) -> Graph:
         workflow = StateGraph(AgentState)
         
         # Add nodes
@@ -214,7 +214,25 @@ class WorkflowManager:
         # Set entry point
         workflow.set_entry_point("planner")
         
-        return workflow.compile()
+        self.running_workflow = workflow.compile()
+
+    def query(self, question: str, user: str ): 
+        inputs = {
+            "input": question, 
+            "chat_history": [], 
+            "agent_outcome": None, 
+            "chat_id": "", 
+            "intermediate_steps": [], 
+            "user": user,
+            "answer": None
+        }
+
+        for s in self.running_workflow.stream(inputs):
+            result = list(s.values())[0]
+            print(result)
+
+        return result['agent_outcome']
+
 
 def run_workflow(
     question: str,

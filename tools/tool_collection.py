@@ -2,6 +2,11 @@ from vertexai.generative_models import GenerationConfig, GenerativeModel
 from utils import create_logger
 from langchain.tools import tool
 import vertexai
+import tomllib
+
+with open("config.toml", "rb") as f:
+    config = tomllib.load(f)
+
 
 logger = create_logger.init_logger(__name__, testing_mode='DEBUG')
 
@@ -14,7 +19,10 @@ def add(x: int, y: int) -> int:
 
 def test_controlled_gen(project: str):
     '''test function to return weather with a controlled generation'''
-    vertexai.init(project='MYPROJECT', location="us-central1")
+    my_project = config['AGENT_DEFAULT']['project_id']
+    my_location = config['AGENT_DEFAULT']['location']
+
+    vertexai.init(project=my_project, location=my_location)
 
     response_schema = {
         "type": "OBJECT",
