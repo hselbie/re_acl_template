@@ -5,6 +5,7 @@ from langchain_core.messages import BaseMessage
 from langchain_core import prompts
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain.agents.format_scratchpad.tools import format_to_tool_messages
+from langchain.agents.format_scratchpad.tools import format_to_tool_messages
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
 from typing import Literal, List, Callable, TypedDict, Annotated, Union, Any, Optional
@@ -14,6 +15,7 @@ class AgentState(TypedDict):
     """
     The agent state is the input to each node in the graph
     """
+    original_question: str     # The original question asked
     input: str                  # Current input string being processed
     current_agent: str          # Name of current agent
     chat_history: list[BaseMessage]  # List of previous messages

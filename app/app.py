@@ -19,22 +19,22 @@ vertexai.init(
 simple_agentic_flow = agent_structure.WorkflowManager(agents=agent_holder.agents)
 simple_agentic_flow.set_up()
 
-message = "What is the weather in Frances?"
+message = "how do i donate blood ?"
 
-remote_agent = reasoning_engines.ReasoningEngine.create(
-    agent_structure.WorkflowManager(agents=agent_holder.agents),
-    requirements=[
-        "google-cloud-aiplatform[langchain,reasoningengine]",
-        "cloudpickle==3.0.0",
-        "pydantic==2.7.4",
-        "langgraph",
-        "httpx",
-    ],
-    display_name="SimpleAgentFlow",
-    description="This is demo code",
-    extra_packages=[
-        "agents/",
-        "tools/", 
-        "utils/"],)
+# remote_agent = reasoning_engines.ReasoningEngine.create(
+#     agent_structure.WorkflowManager(agents=agent_holder.agents),
+#     requirements=[
+#         "google-cloud-aiplatform[langchain,reasoningengine]",
+#         "cloudpickle==3.0.0",
+#         "pydantic==2.7.4",
+#         "langgraph",
+#         "httpx",
+#     ],
+#     display_name="SimpleAgentFlow",
+#     description="This is demo code",
+#     extra_packages=[
+#         "agents/",
+#         "tools/", 
+#         "utils/"],)
 
 print(simple_agentic_flow.query(question=message, user='hugo'))

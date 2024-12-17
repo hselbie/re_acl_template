@@ -1,34 +1,31 @@
 import vertexai
 from langchain_core.tools import tool
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.agents.format_scratchpad.tools import format_to_tool_messages
+# from langchain.agents.format_scratchpad.tools import format_to_tool_messages
 from langgraph.graph import END, StateGraph, Graph
 from typing import Literal, List, Callable, TypedDict, Annotated, Union, Any, Optional
 from utils.utils import Agent, AgentState 
 
 class PlannerAgent(Agent):
     def __call__(self, state: AgentState) -> AgentState:
-        instruction = """You are a planning agent responsible for understanding user questions and routing them appropriately.
+        instruction = """
+        You are a planning agent responsible for understanding user questions and routing them appropriately.
 
-ROUTING OPTIONS:
-- For calculations or data processing: end with 'next: adder'
-- For anything else: end with 'next: factorator'
-- For direct answers that need verification: end with 'next: checker'
-- If completely finished and verified: end with 'next: end'
+        ROUTING OPTIONS:
+        - For questions related to blood donation, eligibility to blood donation answer with 'next: blood_donation'
+        - For questions related to google products, answer with 'next: google_products'
+        - For direct answers that need verification: end with 'next: checker'
+        - If completely finished and verified: end with 'next: end'
 
 EXAMPLE RESPONSES:
 
-1. For calculation needed:
-"This question requires calculating multiple steps with apples. Let me route this to our calculation specialist.
-next: adder"
+1. For blood_donation access:
+"This question requires finding out whether a pregnant person is eligible to donate blood. 
+next: blood_donation"
 
-2. For direct answer:
-"Paris is the capital of France. This is a straightforward fact that needs verification.
-next: factorator"
-
-3. For complex processing:
-"This question involves analyzing sales data across multiple quarters and calculating growth rates. This needs our processing agent.
-next: adder"
+2. For google_product access:
+"This question is related to finding out how long the battery life is in the new pixel phones.
+next: google_product"
 
 IMPORTANT:
 - Always explain your reasoning before providing the routing decision
@@ -36,10 +33,9 @@ IMPORTANT:
 - Pick the most appropriate agent for the task at hand
 
 Available Tools:
-- Calculator for basic math
-- Search for factual information
+- Vertex AI Search Agent with access to a document corpus related to Blood Donation FAQ's and information
+- Vertex AI Search Agent with access to a document corpus related to Google product technical specifications and FAQ's 
 """
-        
         agent = self.create_agent(instruction)
 
         query_input = {
@@ -48,27 +44,28 @@ Available Tools:
         response = agent.query(input=query_input)
         state["agent_outcome"] = response['output']
         state["current_agent"] = 'planner'
-        if "next: adder" not in response['output']:
-            state["answer"] = response['output'].split("next:")[0].strip()
-            
         return state
 
-class AdderAgent(Agent):
+class BloodAgent(Agent):
     def __call__(self, state: AgentState) -> AgentState:
-        instruction = f"""You are a processing agent that handles complex calculations and detailed analysis.
-        
-        Original Question: {state["original_question"]}
-        
-        Your task:
-        1. Process the question using available tools
-        2. Show your work clearly
-        3. Provide a detailed answer
-        
-        Always end your response with: 'next: checker'
+       
+        instruction = """
+        You are a specialized agent focused on blood donation information and processes.
+        When responding:
+        Call the tool referenced in the agent called 'search_blood_docs'
+        When calling the tool use the corpus: 'projects/zinc-forge-302418/locations/us-central1/ragCorpora/4611686018427387904'
+
+        Format your response:
+        Begin with a clear, direct answer
+        Include relevant medical context
+
+        IMPORTANT:
+        Always End your response with:
+        - "next: checker "
         """
-        
+
         agent = self.create_agent(instruction)
-        state['current_agent'] = 'adder'
+        state['current_agent'] = 'BloodAgent'
         query_input = {
         "input": state["input"]
     }
@@ -79,26 +76,37 @@ class AdderAgent(Agent):
         state["answer"] = output.split("next:")[0].strip()
         return state
 
-class FactAgent(Agent):
+class GoogleProductAgent(Agent):
     def __call__(self, state: AgentState) -> AgentState:
-        instruction = f"""
-        You are a test agent that's sole goal is to call the tool associated with this agent.
-        Always end your response with: 'next: checker'"""
-        # instruction = f"""You are a processing agent that looks up facts.
-        
-        # Original Question: {state["original_question"]}
+        instruction = """
+        You are a specialized agent focused on Google products, services, and company information.
 
-        
-        # Your task:
-        # 1. Process the question using available knowledge base 
-        # 2. Show your work clearly
-        # 3. Provide a detailed answer
-        
-        # Always end your response with: 'next: checker'
-        # """
-        
+        Your expertise covers:
+        Google's product lineup and features
+        Google services and their capabilities
+        Company information and updates
+        Android and Chrome
+        Google Cloud and Workspace solutions
+
+        When responding:
+        1. Search the relevant documentation
+        2. Provide accurate, up-to-date information
+        3. Include specific product features and capabilities
+        4. Reference official documentation when available
+        5. Note any relevant version information or recent updates
+        6. Highlight compatibility or integration details if relevant
+
+        Format your response:
+        Start with a clear, direct answer
+        Include relevant details and context
+        Add any important caveats or requirements
+        Cite specific sources from the search results
+
+        End your response with:
+        'next: checker' if you're confident in the completeness and accuracy"""
+
         agent = self.create_agent(instruction)
-        state['current_agent'] = 'factorator'
+        state['current_agent'] = 'GoogleProductAgent'
         query_input = {
         "input": state["input"]
     }
@@ -112,7 +120,8 @@ class FactAgent(Agent):
 
 class CheckerAgent(Agent):
     def __call__(self, state: AgentState) -> AgentState:
-        instruction = f"""You are a verification agent that ensures answers are complete and accurate.
+        instruction = f"""
+        You are a verification agent that ensures answers are complete and accurate.
         
         Original Question: {state["original_question"]}
         Current Answer: {state["answer"]}
@@ -122,12 +131,13 @@ class CheckerAgent(Agent):
         2. Calculations are accurate (if any)
         3. All requirements are met
         4. Response is clear and well-formatted
+        5. Format requested from the original question is honored e.g. a limited bulleted list
         
         End your response with one of:
         'next: end' - if answer is satisfactory
-        'next: adder' - if calculations need revision
-        'next: factorator' - if answer needs clarification
-        'next: planner' - if answer needs clarification
+        'next: blood_donation' - if answer needs clarification
+        'next: google_product' - answer needs clarification
+        'next: planner' - if the answer is completely unrelated to the question 
         """
 
         query_input = {
@@ -143,20 +153,20 @@ class CheckerAgent(Agent):
 
 class WorkflowManager:
     def __init__(self, agents: dict):
-        self.agent_list = ["planner", "adder", "checker", END]
+        self.agent_list = ["planner", "blood_donation", "google_product", END]
         self.agents = agents
 
-    def get_next_step(self, state: AgentState) -> Literal["planner", "adder", "checker", "end"]:
+    def get_next_step(self, state: AgentState) -> Literal["planner", "blood_donation", "google_product", "checker", "end"]:
         """
         Determine the next node to be triggered.
         """
         message = state['agent_outcome'].lower()
         if "next: planner" in message:
             return "planner"
-        elif "next: adder" in message:
-            return "adder"
-        elif "next: factorator" in message:
-            return "factorator"
+        elif "next: blood_donation" in message:
+            return "blood_donation"
+        elif "next: google_product" in message:
+            return "google_product"
         elif "next: checker" in message:
             return "checker"
         elif "next: end" in message:
@@ -186,14 +196,14 @@ class WorkflowManager:
             "planner",
             self.get_next_step,
             {
-                "adder": "adder",
-                "factorator": "factorator",
+                "blood_donation": "blood_donation",
+                "google_product": "google_product",
                 "end": END
             }
         ) 
 
         workflow.add_conditional_edges(
-            "adder",
+            "blood_donation",
             self.get_next_step,
             {
                 "checker": "checker",
@@ -206,8 +216,8 @@ class WorkflowManager:
             self.get_next_step,
             {
                 "planner": "planner",
-                "adder": "adder",
-                "factorator": "factorator",
+                "blood_donation": "blood_donation",
+                "google_product": "google_product",
                 "end": END 
             }
         )
@@ -224,7 +234,8 @@ class WorkflowManager:
             "chat_id": "", 
             "intermediate_steps": [], 
             "user": user,
-            "answer": None
+            "answer": None,
+            "original_question": question,
         }
 
         for s in self.running_workflow.stream(inputs):
@@ -241,6 +252,7 @@ def run_workflow(
     workflow = manager.create_workflow()
     
     initial_state = AgentState(
+        current_agent="planner",
         input=question,
         chat_history=[],
         agent_outcome=None,

@@ -1,4 +1,5 @@
 from agents import agent_structure 
+from vertexai.preview.generative_models import ToolConfig
 from tools import tool_collection
 import tomllib
 
@@ -14,17 +15,25 @@ planner_agent = agent_structure.PlannerAgent(
     project=my_project, 
     location=my_location
     )
-adder_agent = agent_structure.AdderAgent(
+blood_agent = agent_structure.BloodAgent(
     model=my_model, 
     project=my_project, 
     location=my_location,
-    tools=[tool_collection.add]
+    tools=[tool_collection.search_blood_docs],
+    # model_tool_kwargs={
+    # "tool_config": {  # Specify the tool configuration here.
+    #     "function_calling_config": {
+    #         "mode": ToolConfig.FunctionCallingConfig.Mode.ANY,
+    #         "allowed_function_names": ["search_blood_docs"],
+    #         },
+    #     },
+    # },
     )
-factorator = agent_structure.FactAgent(
+google_agent = agent_structure.GoogleProductAgent(
     model=my_model,
     project=my_project,
     location=my_location,
-    tools=[tool_collection.test_controlled_gen]
+    tools=[tool_collection.subtract, tool_collection.next_agent]
     )
 checker_agent = agent_structure.CheckerAgent(
     model=my_model, 
@@ -34,8 +43,7 @@ checker_agent = agent_structure.CheckerAgent(
 
 agents = {
             "planner": planner_agent,
-            "adder": adder_agent,
-            "factorator": factorator,
+            "blood_donation": blood_agent,
+            "google_product": google_agent,
             "checker": checker_agent 
         }
-     
